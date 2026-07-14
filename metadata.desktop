@@ -1,0 +1,10 @@
+[SddmGreeterTheme]
+Name=Rollo Warrior
+Description=Tema personal con reloj horizontal configurable
+Author=Teddy
+Copyright=(c) 2026
+License=MIT
+Type=sddm-theme
+Version=0.1
+MainScript=Main.qml
+ConfigFile=theme.conf
