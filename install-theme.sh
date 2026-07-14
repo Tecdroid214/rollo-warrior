@@ -2,7 +2,14 @@
 set -e
 
 REPO_URL="https://github.com/Tecdroid214/rollo-warrior.git"
-LOCAL_DIR="$HOME/rollo-warrior"
+
+if [ -n "$SUDO_USER" ]; then
+    REAL_HOME=$(eval echo ~"$SUDO_USER")
+else
+    REAL_HOME="$HOME"
+fi
+LOCAL_DIR="$REAL_HOME/rollo-warrior"
+
 THEME_DEST="/usr/share/sddm/themes/rollo-warrior"
 
 function check_sudo() {
@@ -80,12 +87,12 @@ function do_update() {
     echo "--- Actualizando desde GitHub ---"
     if [ -d "$LOCAL_DIR/.git" ]; then
         cd "$LOCAL_DIR"
-        git pull origin main
+        su - "$SUDO_USER" -c "cd $LOCAL_DIR && git pull origin main"
     else
         echo "No se encontró un repositorio Git en $LOCAL_DIR"
         echo "Clonando desde $REPO_URL ..."
         rm -rf "$LOCAL_DIR"
-        git clone "$REPO_URL" "$LOCAL_DIR"
+        su - "$SUDO_USER" -c "git clone $REPO_URL $LOCAL_DIR"
         chmod +x "$LOCAL_DIR/install-theme.sh"
     fi
 
