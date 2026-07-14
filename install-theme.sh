@@ -42,7 +42,7 @@ function configure_sddm() {
     echo ""
     echo "--- Configurando SDDM ---"
     mkdir -p /etc/sddm.conf.d
-    cat > /etc/sddm.conf.d/theme.conf.d << 'EOF'
+    cat > /etc/sddm.conf.d/theme.conf << 'EOF'
 [Theme]
 Current=rollo-warrior
 EOF
