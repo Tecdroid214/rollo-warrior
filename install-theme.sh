@@ -1,121 +1,319 @@
 #!/usr/bin/env bash
-set -e
+set -Eeuo pipefail
 
 REPO_URL="https://github.com/Tecdroid214/rollo-warrior.git"
+THEME_NAME="rollo-warrior"
+THEME_DEST="/usr/share/sddm/themes/${THEME_NAME}"
+SDDM_CONF="/etc/sddm.conf.d/10-${THEME_NAME}.conf"
 
-if [ -n "$SUDO_USER" ]; then
-    REAL_HOME=$(eval echo ~"$SUDO_USER")
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+REAL_USER="${SUDO_USER:-$(id -un)}"
+REAL_HOME="$(getent passwd "$REAL_USER" | cut -d: -f6)"
+LOCAL_CLONE="${REAL_HOME}/rollo-warrior"
+
+if [[ -f "${SCRIPT_DIR}/Main.qml" && -f "${SCRIPT_DIR}/metadata.desktop" ]]; then
+    SOURCE_DIR="$SCRIPT_DIR"
 else
-    REAL_HOME="$HOME"
+    SOURCE_DIR="$LOCAL_CLONE"
 fi
-LOCAL_DIR="$REAL_HOME/rollo-warrior"
 
-THEME_DEST="/usr/share/sddm/themes/rollo-warrior"
+log() {
+    printf '\n==> %s\n' "$*"
+}
 
-function check_sudo() {
-    if [ "$EUID" -ne 0 ]; then
-        echo "Este script necesita permisos sudo. Ejecuta: sudo ./install-theme.sh"
-        exit 1
+warn() {
+    printf '\nAVISO: %s\n' "$*" >&2
+}
+
+fail() {
+    printf '\nERROR: %s\n' "$*" >&2
+    exit 1
+}
+
+on_error() {
+    local exit_code=$?
+    printf '\nERROR: el instalador terminó en la línea %s con código %s.\n' \
+        "${BASH_LINENO[0]:-desconocida}" "$exit_code" >&2
+    exit "$exit_code"
+}
+trap on_error ERR
+
+require_root() {
+    [[ $EUID -eq 0 ]] || fail "Ejecuta este script con: sudo ./install-theme.sh"
+}
+
+run_as_real_user() {
+    if [[ "$REAL_USER" == "root" ]]; then
+        "$@"
+    else
+        runuser -u "$REAL_USER" -- "$@"
     fi
 }
 
-function install_packages() {
-    echo ""
-    echo "--- Instalando paquetes necesarios ---"
+ensure_source() {
+    if [[ -f "${SOURCE_DIR}/Main.qml" && -f "${SOURCE_DIR}/metadata.desktop" ]]; then
+        return
+    fi
+
+    log "Clonando el repositorio en ${LOCAL_CLONE}"
+    rm -rf -- "$LOCAL_CLONE"
+    run_as_real_user git clone "$REPO_URL" "$LOCAL_CLONE"
+    SOURCE_DIR="$LOCAL_CLONE"
+}
+
+install_packages() {
+    log "Instalando dependencias para SDDM y Qt 6"
+
     pacman -S --needed --noconfirm \
+        git \
+        rsync \
         sddm \
         qt6-declarative \
         qt6-svg \
-        qt6-multimedia \
-        gst-plugins-good \
-        gst-plugins-bad \
-        gst-plugins-base \
-        gst-libav
+        qt6-multimedia-ffmpeg
 }
 
-function copy_theme() {
-    echo ""
-    echo "--- Copiando el tema a $THEME_DEST ---"
-    if [ ! -d "$LOCAL_DIR/assets/videos" ] || [ -z "$(ls -A "$LOCAL_DIR/assets/videos" 2>/dev/null)" ]; then
-        echo "AVISO: no se encontraron videos en $LOCAL_DIR/assets/videos"
-        echo "Si tu theme.conf usa BackgroundType=video, copia tus videos ahí antes de continuar."
+read_theme_value() {
+    local key="$1"
+    local file="${SOURCE_DIR}/theme.conf"
+
+    awk -F= -v wanted="$key" '
+        $0 !~ /^[[:space:]]*[;#]/ {
+            current=$1
+            gsub(/^[[:space:]]+|[[:space:]]+$/, "", current)
+            if (current == wanted) {
+                value=substr($0, index($0, "=") + 1)
+                gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+                print value
+                exit
+            }
+        }
+    ' "$file"
+}
+
+validate_source() {
+    log "Validando archivos del tema"
+
+    local required_files=(
+        "Main.qml"
+        "VideoBackground.qml"
+        "metadata.desktop"
+        "theme.conf"
+    )
+
+    local file
+    for file in "${required_files[@]}"; do
+        [[ -f "${SOURCE_DIR}/${file}" ]] || fail "Falta ${SOURCE_DIR}/${file}"
+    done
+
+    grep -Eq '^QtVersion[[:space:]]*=[[:space:]]*6[[:space:]]*$' \
+        "${SOURCE_DIR}/metadata.desktop" \
+        || fail "metadata.desktop debe contener QtVersion=6"
+
+    local background_type enable_video image_path video_path fallback_path
+    background_type="$(read_theme_value BackgroundType || true)"
+    enable_video="$(read_theme_value EnableVideo || true)"
+    image_path="$(read_theme_value BackgroundImage || true)"
+    video_path="$(read_theme_value BackgroundVideo || true)"
+    fallback_path="$(read_theme_value BackgroundVideoFallbackGif || true)"
+
+    if [[ -n "$image_path" && ! -f "${SOURCE_DIR}/${image_path}" ]]; then
+        warn "No existe la imagen de respaldo: ${SOURCE_DIR}/${image_path}"
     fi
-    rsync -av --delete "$LOCAL_DIR"/ "$THEME_DEST"/ \
-        --exclude install-theme.sh \
-        --exclude .git
+
+    if [[ "$background_type" == "video" && "$enable_video" == "true" ]]; then
+        if [[ -z "$video_path" ]]; then
+            fail "BackgroundType=video y EnableVideo=true, pero BackgroundVideo está vacío"
+        fi
+
+        if [[ ! -f "${SOURCE_DIR}/${video_path}" ]]; then
+            warn "No existe el video configurado: ${SOURCE_DIR}/${video_path}. El tema usará el GIF o la imagen de respaldo."
+        fi
+    fi
+
+    if [[ -n "$fallback_path" && ! -f "${SOURCE_DIR}/${fallback_path}" ]]; then
+        warn "No existe el GIF de respaldo: ${SOURCE_DIR}/${fallback_path}"
+    fi
+
+    log "Validación completada"
 }
 
-function configure_sddm() {
-    echo ""
-    echo "--- Configurando SDDM ---"
-    mkdir -p /etc/sddm.conf.d
-    cat > /etc/sddm.conf.d/theme.conf << 'EOF'
+copy_theme() {
+    log "Copiando el tema a ${THEME_DEST}"
+
+    install -d -m 0755 "$THEME_DEST"
+
+    rsync -a --delete \
+        --exclude '.git/' \
+        --exclude '.github/' \
+        --exclude 'install-theme.sh' \
+        --exclude '*.bak' \
+        --exclude '*~' \
+        "${SOURCE_DIR}/" "${THEME_DEST}/"
+
+    chown -R root:root "$THEME_DEST"
+    find "$THEME_DEST" -type d -exec chmod 0755 {} +
+    find "$THEME_DEST" -type f -exec chmod 0644 {} +
+
+    log "Tema instalado correctamente"
+}
+
+configure_theme() {
+    log "Configurando Rollo Warrior como tema de SDDM"
+
+    install -d -m 0755 /etc/sddm.conf.d
+
+    cat > "$SDDM_CONF" <<CONF
+[General]
+DisplayServer=x11
+
 [Theme]
-Current=rollo-warrior
-EOF
-    systemctl enable sddm
+Current=${THEME_NAME}
+CONF
+
+    chmod 0644 "$SDDM_CONF"
+    log "Configuración escrita en ${SDDM_CONF}"
 }
 
-function do_install() {
-    check_sudo
+show_display_manager() {
+    local manager="ninguno"
 
-    if [ ! -d "$LOCAL_DIR" ]; then
-        echo ""
-        echo "--- Clonando el repositorio ---"
-        su - "$SUDO_USER" -c "git clone $REPO_URL $LOCAL_DIR"
+    if [[ -L /etc/systemd/system/display-manager.service ]]; then
+        manager="$(readlink -f /etc/systemd/system/display-manager.service)"
     fi
 
-    install_packages
-    copy_theme
-    configure_sddm
-
-    echo ""
-    echo "=== Instalación completa ==="
-    echo "Prueba antes de reiniciar SDDM:"
-    echo "  sddm-greeter-qt6 --test-mode --theme $THEME_DEST"
-    echo ""
-
-    if [ ! -d "$LOCAL_DIR/assets/videos" ] || [ -z "$(ls -A "$LOCAL_DIR/assets/videos" 2>/dev/null)" ]; then
-        echo "RECUERDA: si usas fondos en video, coloca tus archivos .mp4 en:"
-        echo "  $LOCAL_DIR/assets/videos/"
-        echo "y vuelve a correr este instalador con la opción 2 (Actualizar)."
-    fi
+    printf '\nGestor de inicio configurado actualmente: %s\n' "$manager"
 }
 
-function do_update() {
-    echo ""
-    echo "--- Actualizando desde GitHub ---"
-    if [ -d "$LOCAL_DIR/.git" ]; then
-        cd "$LOCAL_DIR"
-        su - "$SUDO_USER" -c "cd $LOCAL_DIR && git pull origin main"
+activate_sddm() {
+    require_root
+    show_display_manager
+
+    printf '\nEsta acción cambiará el gestor de inicio para el próximo arranque.\n'
+    printf 'No cerrará tu sesión gráfica actual.\n'
+    read -r -p 'Escribe SI para continuar: ' confirmation
+
+    [[ "$confirmation" == "SI" ]] || {
+        echo "Operación cancelada."
+        return
+    }
+
+    if systemctl list-unit-files lightdm.service >/dev/null 2>&1; then
+        systemctl disable lightdm.service || true
+    fi
+
+    systemctl enable sddm.service --force
+
+    log "SDDM quedó habilitado para el próximo arranque"
+    show_display_manager
+    echo "Reinicia cuando estés listo: sudo reboot"
+}
+
+restore_lightdm() {
+    require_root
+
+    if ! systemctl list-unit-files lightdm.service >/dev/null 2>&1; then
+        fail "LightDM no está instalado"
+    fi
+
+    systemctl disable sddm.service || true
+    systemctl enable lightdm.service --force
+
+    log "LightDM quedó restaurado para el próximo arranque"
+    show_display_manager
+}
+
+update_repository() {
+    ensure_source
+
+    if [[ -d "${SOURCE_DIR}/.git" ]]; then
+        log "Actualizando el repositorio local"
+        run_as_real_user git -C "$SOURCE_DIR" pull --ff-only origin main
     else
-        echo "No se encontró un repositorio Git en $LOCAL_DIR"
-        echo "Clonando desde $REPO_URL ..."
-        rm -rf "$LOCAL_DIR"
-        su - "$SUDO_USER" -c "git clone $REPO_URL $LOCAL_DIR"
-        chmod +x "$LOCAL_DIR/install-theme.sh"
+        warn "${SOURCE_DIR} no es un repositorio Git; se copiarán los archivos locales actuales"
     fi
-
-    check_sudo
-    copy_theme
-
-    echo ""
-    echo "=== Actualización completa ==="
-    echo "Prueba antes de reiniciar SDDM:"
-    echo "  sddm-greeter-qt6 --test-mode --theme $THEME_DEST"
 }
 
-echo "=== Instalador de Rollo Warrior SDDM Theme ==="
-echo ""
-echo "1) Instalar (paquetes + tema, primera vez)"
-echo "2) Actualizar (solo copia los últimos cambios del tema)"
-echo "3) Salir"
-echo ""
-read -p "Elige una opción [1-3]: " opcion
+print_test_commands() {
+    cat <<INFO
 
-case $opcion in
-    1) do_install ;;
-    2) do_update ;;
-    3) echo "Saliendo..."; exit 0 ;;
-    *) echo "Opción inválida"; exit 1 ;;
-esac
+Prueba el tema desde tu sesión gráfica, SIN sudo:
+
+  sddm-greeter-qt6 --test-mode --theme ${THEME_DEST}
+
+Comprueba que SDDM detectará Qt 6:
+
+  grep '^QtVersion=' ${THEME_DEST}/metadata.desktop
+
+Comprueba que el video fue instalado:
+
+  grep '^BackgroundVideo=' ${THEME_DEST}/theme.conf
+  ls -lh ${THEME_DEST}/assets/videos/
+
+El mensaje de socket en --test-mode es normal porque el greeter de prueba no
+está conectado al demonio real de SDDM.
+INFO
+}
+
+do_install() {
+    require_root
+    install_packages
+    ensure_source
+    validate_source
+    copy_theme
+    configure_theme
+    show_display_manager
+    print_test_commands
+
+    cat <<INFO
+
+Instalación terminada.
+El instalador NO sustituyó automáticamente LightDM.
+Usa la opción 4 del menú cuando la prueba con sddm-greeter-qt6 funcione.
+INFO
+}
+
+do_update() {
+    require_root
+    ensure_source
+    update_repository
+    validate_source
+    copy_theme
+    configure_theme
+    print_test_commands
+}
+
+show_menu() {
+    cat <<'MENU'
+
+=== Instalador de Rollo Warrior SDDM Theme v0.3 ===
+
+1) Instalar o reparar dependencias, tema y configuración
+2) Actualizar desde GitHub y volver a copiar el tema
+3) Mostrar comandos de prueba
+4) Activar SDDM para el próximo arranque
+5) Restaurar LightDM para el próximo arranque
+6) Salir
+MENU
+}
+
+main() {
+    require_root
+
+    while true; do
+        show_menu
+        read -r -p 'Elige una opción [1-6]: ' option
+
+        case "$option" in
+            1) do_install ;;
+            2) do_update ;;
+            3) print_test_commands ;;
+            4) activate_sddm ;;
+            5) restore_lightdm ;;
+            6) echo "Saliendo."; exit 0 ;;
+            *) echo "Opción inválida." ;;
+        esac
+    done
+}
+
+main "$@"

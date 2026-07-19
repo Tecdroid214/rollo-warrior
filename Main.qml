@@ -1,541 +1,786 @@
-import QtQuick 2.15
+import QtQuick
+import QtQuick.Window
 
 Rectangle {
     id: root
-    width: 1920
-    height: 1080
-    color: "#2d0a15"
+
+    width: parent ? parent.width : Screen.width
+    height: parent ? parent.height : Screen.height
+    color: "#000000"
     focus: true
 
     Component.onCompleted: root.forceActiveFocus()
 
-    // ==== Lectura de theme.conf / theme.conf.user ====
-    property string clockPosition: config.keys().indexOf("ClockPosition") !== -1
-                                    ? config.stringValue("ClockPosition") : "center"
-    property string clockPositionV: config.keys().indexOf("ClockPositionV") !== -1
-                                     ? config.stringValue("ClockPositionV") : "center"
-    property string clockOrientation: config.keys().indexOf("ClockOrientation") !== -1
-                                       ? config.stringValue("ClockOrientation") : "horizontal"
-    property string language: config.keys().indexOf("Language") !== -1
-                               ? config.stringValue("Language") : "es"
-    property bool use12Hour: config.keys().indexOf("Use12Hour") !== -1
-                              ? config.stringValue("Use12Hour") === "true" : false
-    property string backgroundImage: config.keys().indexOf("BackgroundImage") !== -1
-                                      ? config.stringValue("BackgroundImage") : "assets/background.jpg"
-    property real overlayOpacity: config.keys().indexOf("OverlayOpacity") !== -1
-                                   ? parseFloat(config.stringValue("OverlayOpacity")) : 0.35
-    property real textBgOpacity: config.keys().indexOf("TextBackgroundOpacity") !== -1
-                                  ? parseFloat(config.stringValue("TextBackgroundOpacity")) : 0.45
-    property string accentMode: config.keys().indexOf("AccentMode") !== -1
-                                 ? config.stringValue("AccentMode") : "auto"
-    property string accentColorConfig: config.keys().indexOf("AccentColor") !== -1
-                                        ? config.stringValue("AccentColor") : "#f4c6cf"
-    property real clockMarginH: config.keys().indexOf("ClockMarginH") !== -1
-                                 ? parseFloat(config.stringValue("ClockMarginH")) : 80
-    property real clockMarginV: config.keys().indexOf("ClockMarginV") !== -1
-                                 ? parseFloat(config.stringValue("ClockMarginV")) : 40
-    property bool splitLayout: config.keys().indexOf("SplitLayout") !== -1
-                                ? config.stringValue("SplitLayout") === "true" : false
-    property bool dateBold: config.keys().indexOf("DateBold") !== -1
-                             ? config.stringValue("DateBold") === "true" : false
-    property real clockFontSize: config.keys().indexOf("ClockFontSize") !== -1
-                                  ? parseFloat(config.stringValue("ClockFontSize")) : 110
-    property real dateFontSize: config.keys().indexOf("DateFontSize") !== -1
-                                 ? parseFloat(config.stringValue("DateFontSize")) : 24
-    property bool unlockCentered: config.keys().indexOf("UnlockCentered") !== -1
-                                   ? config.stringValue("UnlockCentered") === "true" : false
-    property string panelStyle: config.keys().indexOf("PanelStyle") !== -1
-                                 ? config.stringValue("PanelStyle") : "gradient"
-    property real panelBlurRadius: config.keys().indexOf("PanelBlurRadius") !== -1
-                                    ? parseFloat(config.stringValue("PanelBlurRadius")) : 64
-    property real panelRadius: config.keys().indexOf("PanelRadius") !== -1
-                                ? parseFloat(config.stringValue("PanelRadius")) : 32
-    property real panelTintOpacity: config.keys().indexOf("PanelTintOpacity") !== -1
-                                     ? parseFloat(config.stringValue("PanelTintOpacity")) : 0.25
-    property string fontFamily: config.keys().indexOf("FontFamily") !== -1
-                                 ? config.stringValue("FontFamily") : ""
-    property string customFontFile: config.keys().indexOf("CustomFontFile") !== -1
-                                     ? config.stringValue("CustomFontFile") : ""
-    property string backgroundType: config.keys().indexOf("BackgroundType") !== -1
-                                     ? config.stringValue("BackgroundType") : "image"
-    property string backgroundVideo: config.keys().indexOf("BackgroundVideo") !== -1
-                                      ? config.stringValue("BackgroundVideo") : ""
-    property string backgroundVideoFallbackGif: config.keys().indexOf("BackgroundVideoFallbackGif") !== -1
-                                      ? config.stringValue("BackgroundVideoFallbackGif") : "assets/videos/fallback.gif"
-    property bool loginDarkenEnabled: config.keys().indexOf("LoginDarkenEnabled") !== -1
-                                       ? config.stringValue("LoginDarkenEnabled") === "true" : true
-    property real loginDarkenOpacity: config.keys().indexOf("LoginDarkenOpacity") !== -1
-                                       ? parseFloat(config.stringValue("LoginDarkenOpacity")) : 0.25
-    property string loginPanelStyle: config.keys().indexOf("LoginPanelStyle") !== -1
-                                      ? config.stringValue("LoginPanelStyle") : "glass"
-
-    property string effectiveFontFamily: customFontLoader.status === FontLoader.Ready
-                                          ? customFontLoader.name
-                                          : (fontFamily.length > 0 ? fontFamily : Qt.application.font.family)
-
-    FontLoader {
-        id: customFontLoader
-        source: customFontFile.length > 0 ? customFontFile : ""
+    // =====================================================
+    // Helpers de configuración
+    // =====================================================
+    function hasConfigKey(key) {
+        return config && config.keys().indexOf(key) !== -1
     }
 
+    function configString(key, fallbackValue) {
+        return hasConfigKey(key) ? config.stringValue(key) : fallbackValue
+    }
+
+    function configBool(key, fallbackValue) {
+        if (!hasConfigKey(key))
+            return fallbackValue
+        return config.stringValue(key).toLowerCase() === "true"
+    }
+
+    function configReal(key, fallbackValue) {
+        if (!hasConfigKey(key))
+            return fallbackValue
+        var parsed = parseFloat(config.stringValue(key))
+        return isNaN(parsed) ? fallbackValue : parsed
+    }
+
+    // =====================================================
+    // Lectura de theme.conf
+    // =====================================================
+    property string clockPosition: configString("ClockPosition", "center")
+    property string clockPositionV: configString("ClockPositionV", "center")
+    property string clockOrientation: configString("ClockOrientation", "horizontal")
+    property string language: configString("Language", "es")
+    property bool use12Hour: configBool("Use12Hour", false)
+
+    property string backgroundType: configString("BackgroundType", "image")
+    property string backgroundImage: configString("BackgroundImage", "assets/images/image_1.jpg")
+    property string backgroundVideo: configString("BackgroundVideo", "")
+    property string backgroundVideoFallbackGif: configString(
+        "BackgroundVideoFallbackGif",
+        "assets/gif/fallback.gif"
+    )
+    property bool enableVideo: configBool("EnableVideo", true)
+
+    property real overlayOpacity: configReal("OverlayOpacity", 0.30)
+    property real textBgOpacity: configReal("TextBackgroundOpacity", 0.45)
+    property string accentMode: configString("AccentMode", "auto")
+    property string accentColorConfig: configString("AccentColor", "#c6f4eb")
+
+    property real clockMarginH: configReal("ClockMarginH", 80)
+    property real clockMarginV: configReal("ClockMarginV", 40)
+    property bool splitLayout: configBool("SplitLayout", false)
+    property bool dateBold: configBool("DateBold", true)
+    property real clockFontSize: configReal("ClockFontSize", 110)
+    property real dateFontSize: configReal("DateFontSize", 30)
+    property bool unlockCentered: configBool("UnlockCentered", false)
+
+    property string panelStyle: configString("PanelStyle", "glass")
+    property real panelRadius: configReal("PanelRadius", 0)
+    property real panelTintOpacity: configReal("PanelTintOpacity", 0.25)
+    property bool enableBlur: configBool("EnableBlur", false)
+    property real panelBlurRadius: configReal("PanelBlurRadius", 45)
+
+    property string fontFamily: configString("FontFamily", "")
+    property string customFontFile: configString("CustomFontFile", "")
+
+    property bool loginDarkenEnabled: configBool("LoginDarkenEnabled", true)
+    property real loginDarkenOpacity: configReal("LoginDarkenOpacity", 0.25)
+    property string loginPanelStyle: configString("LoginPanelStyle", "glass")
+
+    // =====================================================
+    // Estado derivado
+    // =====================================================
+    property url resolvedBackgroundImage: Qt.resolvedUrl(backgroundImage)
+    property url resolvedBackgroundVideo: Qt.resolvedUrl(backgroundVideo)
+    property url resolvedFallbackGif: Qt.resolvedUrl(backgroundVideoFallbackGif)
+    property bool useVideoBackground:
+        backgroundType === "video" && enableVideo && backgroundVideo.length > 0
+
+    // El estado se enlaza directamente al objeto cargado para evitar perder
+    // una señal si MediaPlayer comienza antes de que Connections quede conectado.
+    readonly property bool videoComponentReady:
+        videoLoader.status === Loader.Ready && videoLoader.item !== null
+    readonly property bool videoPlaybackReady:
+        videoComponentReady && videoLoader.item.started
+    readonly property bool videoPlaybackFailed:
+        videoLoader.status === Loader.Error
+        || (videoComponentReady && videoLoader.item.failed)
+    readonly property string videoErrorMessage:
+        videoLoader.status === Loader.Error
+        ? "No se pudo cargar VideoBackground.qml"
+        : (videoComponentReady ? videoLoader.item.errorMessage : "")
+
     property bool splitActive: splitLayout && clockPosition !== "center"
-
-    property color extractedAccentColor: "#f4c6cf"
-    property color accentColor: (accentMode === "custom" || backgroundType === "video")
-                                 ? accentColorConfig : extractedAccentColor
-
     property bool clockAtBottom: clockPositionV === "bottom"
     property bool unlockShouldCenter: unlockCentered || splitActive
 
-    property string currentTimeText: use12Hour
-                                      ? Qt.formatTime(new Date(), "h:mm AP")
-                                      : Qt.formatTime(new Date(), "hh:mm")
+    property date now: new Date()
+    property string currentTimeText:
+        use12Hour ? Qt.formatTime(now, "h:mm AP") : Qt.formatTime(now, "hh:mm")
     property string currentHourText: {
-        var h = new Date().getHours()
-        if (use12Hour) { h = h % 12; if (h === 0) h = 12 }
-        var s = h.toString()
-        return s.length < 2 ? "0" + s : s
+        var h = now.getHours()
+        if (use12Hour) {
+            h = h % 12
+            if (h === 0)
+                h = 12
+        }
+        var value = h.toString()
+        return value.length < 2 ? "0" + value : value
     }
     property string currentMinuteText: {
-        var m = new Date().getMinutes()
-        var s = m.toString()
-        return s.length < 2 ? "0" + s : s
+        var value = now.getMinutes().toString()
+        return value.length < 2 ? "0" + value : value
     }
-    property string currentAmPmText: new Date().getHours() < 12 ? "AM" : "PM"
-
-    // ✅ FECHA CORREGIDA - Sin usar Qt.locale() que causa [object Object]
+    property string currentAmPmText: now.getHours() < 12 ? "AM" : "PM"
     property string currentDateText: {
-        var d = new Date()
         if (language === "es") {
-            var days = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"]
-            var months = ["enero", "febrero", "marzo", "abril", "mayo", "junio",
-                          "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
-            return days[d.getDay()] + ", " + d.getDate() + " de " + months[d.getMonth()]
-        } else {
-            var daysEn = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
-            var monthsEn = ["January", "February", "March", "April", "May", "June",
-                            "July", "August", "September", "October", "November", "December"]
-            return daysEn[d.getDay()] + ", " + monthsEn[d.getMonth()] + " " + d.getDate()
+            var daysEs = [
+                "Domingo", "Lunes", "Martes", "Miércoles",
+                "Jueves", "Viernes", "Sábado"
+            ]
+            var monthsEs = [
+                "enero", "febrero", "marzo", "abril", "mayo", "junio",
+                "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"
+            ]
+            return daysEs[now.getDay()] + ", " + now.getDate() + " de " + monthsEs[now.getMonth()]
         }
+
+        var daysEn = [
+            "Sunday", "Monday", "Tuesday", "Wednesday",
+            "Thursday", "Friday", "Saturday"
+        ]
+        var monthsEn = [
+            "January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December"
+        ]
+        return daysEn[now.getDay()] + ", " + monthsEn[now.getMonth()] + " " + now.getDate()
     }
 
-    property string unlockText: language === "es"
-                                 ? "Presiona cualquier tecla para desbloquear"
-                                 : "Press any key to unlock"
+    property string unlockText:
+        language === "es"
+        ? "Presiona cualquier tecla para desbloquear"
+        : "Press any key to unlock"
 
-    // ==== Estado: pantalla de bloqueo vs pantalla de usuario/contraseña ====
+    property string loginErrorText: ""
     property bool showLogin: false
     property bool showPassword: false
 
-    Keys.onPressed: {
+    FontLoader {
+        id: customFontLoader
+        source: customFontFile.length > 0 ? Qt.resolvedUrl(customFontFile) : ""
+    }
+
+    property string effectiveFontFamily:
+        customFontLoader.status === FontLoader.Ready
+        ? customFontLoader.name
+        : (fontFamily.length > 0 ? fontFamily : Qt.application.font.family)
+
+    property color extractedAccentColor: "#c6f4eb"
+    property color accentColor:
+        accentMode === "custom" || useVideoBackground
+        ? accentColorConfig
+        : extractedAccentColor
+
+    // =====================================================
+    // Entrada de teclado y autenticación
+    // =====================================================
+    Keys.onPressed: function(event) {
         if (!showLogin) {
             showLogin = true
             event.accepted = true
         }
     }
+
     onShowLoginChanged: {
         if (showLogin) {
+            loginErrorText = ""
             passwordInput.forceActiveFocus()
         } else {
+            passwordInput.text = ""
             root.forceActiveFocus()
         }
     }
 
     function doLogin() {
-        var uname = userListView.currentItem ? userListView.currentItem.userName : ""
-        var sidx = sessionListView.currentIndex >= 0 ? sessionListView.currentIndex : 0
-        sddm.login(uname, passwordInput.text, sidx)
+        var userName = userListView.currentItem
+            ? userListView.currentItem.userName
+            : ""
+        var sessionIndex = sessionListView.currentIndex >= 0
+            ? sessionListView.currentIndex
+            : 0
+
+        if (userName.length === 0) {
+            loginErrorText = language === "es"
+                ? "No se encontró un usuario válido"
+                : "No valid user was found"
+            return
+        }
+
+        loginErrorText = ""
+        sddm.login(userName, passwordInput.text, sessionIndex)
     }
 
-    // Modelos ocultos
+    Connections {
+        target: sddm
+
+        function onLoginFailed() {
+            loginErrorText = language === "es"
+                ? "Contraseña incorrecta o inicio de sesión fallido"
+                : "Incorrect password or login failed"
+            passwordInput.text = ""
+            passwordInput.forceActiveFocus()
+        }
+
+        function onLoginSucceeded() {
+            loginErrorText = ""
+        }
+
+        function onInformationMessage(message) {
+            if (message && message.length > 0)
+                loginErrorText = message
+        }
+    }
+
+    // Modelos invisibles, pero instanciados para disponer de currentItem.
     ListView {
         id: userListView
-        visible: false
-        width: 1; height: 1
+        x: -10000
+        y: -10000
+        width: 1
+        height: 1
+        opacity: 0
         cacheBuffer: 100000
         model: userModel
         currentIndex: userModel.lastIndex >= 0 ? userModel.lastIndex : 0
+
         delegate: Item {
             property string userName: name
             property string userRealName: realName
             property string userIcon: icon
         }
     }
+
     ListView {
         id: sessionListView
-        visible: false
-        width: 1; height: 1
+        x: -10000
+        y: -10000
+        width: 1
+        height: 1
+        opacity: 0
         cacheBuffer: 100000
         model: sessionModel
         currentIndex: sessionModel.lastIndex >= 0 ? sessionModel.lastIndex : 0
+
         delegate: Item {
             property string sessionName: name
         }
     }
 
-    // ======================================================
-    // GESTIÓN DE FONDO ROBUSTA (Imagen, Video Externo y Fallback)
-    // ======================================================
-
-    Image {
-        id: staticBackground
+    // =====================================================
+    // Fondo: imagen base, GIF de espera y video
+    // =====================================================
+    Item {
+        id: backgroundLayer
         anchors.fill: parent
-        source: backgroundImage
-        fillMode: Image.PreserveAspectCrop
-        asynchronous: true
-        visible: backgroundType === "image" || (backgroundType === "video" && videoLoader.status !== Loader.Ready)
-        onStatusChanged: if (status === Image.Ready) colorCanvas.requestPaint()
-    }
 
-    AnimatedImage {
-        id: gifFallback
-        anchors.fill: parent
-        source: backgroundVideoFallbackGif
-        fillMode: Image.PreserveAspectCrop
-        visible: backgroundType === "video" && videoLoader.status !== Loader.Ready
-        playing: visible
-        asynchronous: true
-        cache: false
-    }
+        Image {
+            id: staticBackground
+            anchors.fill: parent
+            source: root.resolvedBackgroundImage
+            fillMode: Image.PreserveAspectCrop
+            asynchronous: true
+            cache: true
+            sourceSize.width: root.width
+            sourceSize.height: root.height
 
-    Loader {
-        id: videoLoader
-        anchors.fill: parent
-        active: backgroundType === "video"
-        visible: status === Loader.Ready
-        source: backgroundType === "video" ? "VideoBackground.qml" : ""
-        onLoaded: {
-            console.log("Video cargado correctamente desde archivo externo.")
-            if (item) {
-                item.videoSource = backgroundVideo
+            onStatusChanged: {
+                if (status === Image.Ready)
+                    colorCanvas.requestPaint()
             }
         }
-        onStatusChanged: {
-            if (status === Loader.Error) {
-                console.log("No se pudo cargar VideoBackground.qml. Usando GIF de respaldo.")
-                gifFallback.visible = true
+
+        AnimatedImage {
+            id: gifFallback
+            anchors.fill: parent
+            z: 1
+            source: root.resolvedFallbackGif
+            fillMode: Image.PreserveAspectCrop
+            visible: root.useVideoBackground && !root.videoPlaybackReady
+            playing: visible
+            asynchronous: true
+            cache: false
+        }
+
+        Loader {
+            id: videoLoader
+            anchors.fill: parent
+            z: 2
+            active: root.useVideoBackground
+            visible: active && status === Loader.Ready
+            opacity: root.videoPlaybackReady ? 1 : 0
+            source: active ? Qt.resolvedUrl("VideoBackground.qml") : ""
+
+            Behavior on opacity {
+                NumberAnimation { duration: 180 }
+            }
+
+            onLoaded: {
+                if (!item)
+                    return
+
+                item.videoSource = root.resolvedBackgroundVideo
+
+                // Espera un ciclo del event loop. Esto evita que playbackStarted
+                // ocurra antes de que Main.qml pueda observar item.started.
+                Qt.callLater(function() {
+                    if (videoLoader.item)
+                        videoLoader.item.start()
+                })
+            }
+
+            onStatusChanged: {
+                if (status === Loader.Error)
+                    console.log("No se pudo cargar VideoBackground.qml")
+            }
+        }
+
+        Connections {
+            target: videoLoader.item
+            ignoreUnknownSignals: true
+
+            function onPlaybackStarted() {
+                console.log("Video de fondo iniciado correctamente:",
+                            root.resolvedBackgroundVideo)
+            }
+
+            function onPlaybackFailed(message) {
+                console.log("Error de video; se mantiene el GIF o la imagen:",
+                            message)
+            }
+
+            function onMediaStatusReported(statusText) {
+                console.log("Estado de Qt Multimedia:", statusText)
             }
         }
     }
 
+    // Extrae un color aproximado de la imagen estática.
     Canvas {
         id: colorCanvas
-        width: 32; height: 32
+        width: 32
+        height: 32
         opacity: 0
+
         onPaint: {
-            if (backgroundType === "video" || staticBackground.status !== Image.Ready) return
+            if (root.useVideoBackground || staticBackground.status !== Image.Ready)
+                return
+
             var ctx = getContext("2d")
+            ctx.clearRect(0, 0, width, height)
             ctx.drawImage(staticBackground, 0, 0, width, height)
-            var imgData = ctx.getImageData(0, 0, width, height)
-            var data = imgData.data
-            var totalLum = 0, count = 0, sumSin = 0, sumCos = 0, sumSat = 0
+
+            var imageData = ctx.getImageData(0, 0, width, height)
+            var data = imageData.data
+            var totalLum = 0
+            var count = 0
+            var sumSin = 0
+            var sumCos = 0
+            var sumSat = 0
+
             for (var i = 0; i < data.length; i += 4) {
-                var pr = data[i] / 255, pg = data[i+1] / 255, pb = data[i+2] / 255
-                var lum = 0.299 * pr + 0.587 * pg + 0.114 * pb
-                totalLum += lum; count++
-                var pc = Qt.rgba(pr, pg, pb, 1)
-                var pSat = pc.hslSaturation, pHue = pc.hslHue
-                if (pHue < 0) pHue = 0
-                var angle = pHue * 2 * Math.PI
-                sumSin += Math.sin(angle) * pSat
-                sumCos += Math.cos(angle) * pSat
-                sumSat += pSat
+                var red = data[i] / 255
+                var green = data[i + 1] / 255
+                var blue = data[i + 2] / 255
+                var luminance = 0.299 * red + 0.587 * green + 0.114 * blue
+
+                totalLum += luminance
+                count++
+
+                var pixelColor = Qt.rgba(red, green, blue, 1)
+                var saturation = pixelColor.hslSaturation
+                var hue = pixelColor.hslHue
+                if (hue < 0)
+                    hue = 0
+
+                var angle = hue * 2 * Math.PI
+                sumSin += Math.sin(angle) * saturation
+                sumCos += Math.cos(angle) * saturation
+                sumSat += saturation
             }
-            var avgLuminance = totalLum / count
+
+            if (count === 0)
+                return
+
+            var averageLuminance = totalLum / count
             var finalHue = 0
+
             if (sumSat > 0.001) {
-                var avgAngle = Math.atan2(sumSin, sumCos)
-                finalHue = avgAngle / (2 * Math.PI)
-                if (finalHue < 0) finalHue += 1
+                var averageAngle = Math.atan2(sumSin, sumCos)
+                finalHue = averageAngle / (2 * Math.PI)
+                if (finalHue < 0)
+                    finalHue += 1
             }
-            var finalSat = Math.max(0.45, Math.min(0.9, (sumSat / count) * 3))
-            var targetLightness = avgLuminance < 0.5 ? 0.85 : 0.22
-            root.extractedAccentColor = Qt.hsla(finalHue, finalSat, targetLightness, 1)
+
+            var finalSaturation = Math.max(0.45, Math.min(0.9, (sumSat / count) * 3))
+            var targetLightness = averageLuminance < 0.5 ? 0.85 : 0.22
+            root.extractedAccentColor = Qt.hsla(finalHue, finalSaturation, targetLightness, 1)
         }
     }
 
     Rectangle {
         anchors.fill: parent
         color: "#000000"
-        opacity: overlayOpacity
+        opacity: root.overlayOpacity
     }
 
     Rectangle {
         anchors.fill: parent
         color: "#000000"
-        opacity: (showLogin && loginDarkenEnabled) ? loginDarkenOpacity : 0
-        Behavior on opacity { NumberAnimation { duration: 250 } }
+        opacity: root.showLogin && root.loginDarkenEnabled
+            ? root.loginDarkenOpacity
+            : 0
+
+        Behavior on opacity {
+            NumberAnimation { duration: 250 }
+        }
     }
 
-    // ======================================================
-    // PANTALLA DE BLOQUEO
-    // ======================================================
+    // =====================================================
+    // Pantalla de bloqueo
+    // =====================================================
     Item {
         id: lockScreen
         anchors.fill: parent
-        opacity: showLogin ? 0 : 1
+        opacity: root.showLogin ? 0 : 1
         visible: opacity > 0
-        Behavior on opacity { NumberAnimation { duration: 250 } }
+
+        Behavior on opacity {
+            NumberAnimation { duration: 250 }
+        }
 
         MouseArea {
             anchors.fill: parent
-            onClicked: showLogin = true
+            onClicked: root.showLogin = true
         }
 
-        // ---- LAYOUT NORMAL ----
         Item {
             id: contentBlock
-            visible: !splitActive
-            width: 560
+            visible: !root.splitActive
+            width: Math.min(560, root.width * 0.42)
             anchors.top: parent.top
             anchors.bottom: parent.bottom
 
-            anchors.left: clockPosition === "left" ? parent.left : undefined
-            anchors.leftMargin: clockMarginH
-            anchors.horizontalCenter: clockPosition === "center" ? parent.horizontalCenter : undefined
-            anchors.right: clockPosition === "right" ? parent.right : undefined
-            anchors.rightMargin: clockMarginH
+            anchors.left: root.clockPosition === "left" ? parent.left : undefined
+            anchors.leftMargin: root.clockMarginH
+            anchors.horizontalCenter:
+                root.clockPosition === "center" ? parent.horizontalCenter : undefined
+            anchors.right: root.clockPosition === "right" ? parent.right : undefined
+            anchors.rightMargin: root.clockMarginH
 
             Rectangle {
-                visible: panelStyle === "gradient"
+                visible: root.panelStyle === "gradient"
                 anchors.fill: parent
+
                 gradient: Gradient {
                     orientation: Gradient.Horizontal
                     GradientStop { position: 0.0; color: "#00000000" }
-                    GradientStop { position: 0.15; color: Qt.rgba(0, 0, 0, textBgOpacity) }
-                    GradientStop { position: 0.85; color: Qt.rgba(0, 0, 0, textBgOpacity) }
+                    GradientStop {
+                        position: 0.15
+                        color: Qt.rgba(0, 0, 0, root.textBgOpacity)
+                    }
+                    GradientStop {
+                        position: 0.85
+                        color: Qt.rgba(0, 0, 0, root.textBgOpacity)
+                    }
                     GradientStop { position: 1.0; color: "#00000000" }
                 }
             }
 
             Rectangle {
-                visible: panelStyle === "glass"
+                visible: root.panelStyle === "glass"
                 anchors.fill: parent
-                radius: panelRadius
-                color: Qt.rgba(0, 0, 0, panelTintOpacity + 0.12)
-                border.color: Qt.rgba(accentColor.r, accentColor.g, accentColor.b, 0.08)
+                radius: root.panelRadius
+                color: Qt.rgba(0, 0, 0, root.panelTintOpacity + 0.12)
+                border.color: Qt.rgba(
+                    root.accentColor.r,
+                    root.accentColor.g,
+                    root.accentColor.b,
+                    0.08
+                )
                 border.width: 1
             }
 
             Column {
                 id: clockColumn
                 anchors.horizontalCenter: parent.horizontalCenter
-                anchors.top: clockPositionV === "top" ? parent.top : undefined
-                anchors.topMargin: clockMarginV
-                anchors.verticalCenter: clockPositionV === "center" ? parent.verticalCenter : undefined
-                anchors.bottom: clockPositionV === "bottom" ? parent.bottom : undefined
-                anchors.bottomMargin: clockMarginV
+                anchors.top: root.clockPositionV === "top" ? parent.top : undefined
+                anchors.topMargin: root.clockMarginV
+                anchors.verticalCenter:
+                    root.clockPositionV === "center" ? parent.verticalCenter : undefined
+                anchors.bottom:
+                    root.clockPositionV === "bottom" ? parent.bottom : undefined
+                anchors.bottomMargin: root.clockMarginV
                 spacing: 12
 
                 Text {
-                    visible: clockOrientation === "horizontal"
-                    text: currentTimeText
+                    visible: root.clockOrientation === "horizontal"
+                    text: root.currentTimeText
                     anchors.horizontalCenter: parent.horizontalCenter
-                    font.pixelSize: clockFontSize
-                    font.family: effectiveFontFamily
+                    font.pixelSize: root.clockFontSize
+                    font.family: root.effectiveFontFamily
                     font.weight: Font.Medium
-                    color: accentColor
+                    color: root.accentColor
                 }
 
                 Column {
-                    visible: clockOrientation === "vertical"
+                    visible: root.clockOrientation === "vertical"
                     anchors.horizontalCenter: parent.horizontalCenter
-                    spacing: -clockFontSize * 0.12
+                    spacing: -root.clockFontSize * 0.12
 
                     Text {
-                        text: currentHourText
+                        text: root.currentHourText
                         anchors.horizontalCenter: parent.horizontalCenter
-                        font.pixelSize: clockFontSize
-                        font.family: effectiveFontFamily
+                        font.pixelSize: root.clockFontSize
+                        font.family: root.effectiveFontFamily
                         font.weight: Font.Medium
-                        color: accentColor
+                        color: root.accentColor
                     }
+
                     Text {
-                        text: currentMinuteText
+                        text: root.currentMinuteText
                         anchors.horizontalCenter: parent.horizontalCenter
-                        font.pixelSize: clockFontSize
-                        font.family: effectiveFontFamily
+                        font.pixelSize: root.clockFontSize
+                        font.family: root.effectiveFontFamily
                         font.weight: Font.Medium
-                        color: accentColor
+                        color: root.accentColor
                     }
+
                     Text {
-                        visible: use12Hour
-                        text: currentAmPmText
+                        visible: root.use12Hour
+                        text: root.currentAmPmText
                         anchors.horizontalCenter: parent.horizontalCenter
-                        font.pixelSize: Math.max(14, clockFontSize * 0.18)
-                        font.family: effectiveFontFamily
-                        color: Qt.rgba(accentColor.r, accentColor.g, accentColor.b, 0.75)
+                        font.pixelSize: Math.max(14, root.clockFontSize * 0.18)
+                        font.family: root.effectiveFontFamily
+                        color: Qt.rgba(
+                            root.accentColor.r,
+                            root.accentColor.g,
+                            root.accentColor.b,
+                            0.75
+                        )
                     }
                 }
 
-                // ✅ FECHA - Ahora se muestra correctamente
                 Text {
-                    text: currentDateText
+                    text: root.currentDateText
                     anchors.horizontalCenter: parent.horizontalCenter
-                    font.pixelSize: dateFontSize
-                    font.family: effectiveFontFamily
-                    font.bold: dateBold
-                    color: Qt.rgba(accentColor.r, accentColor.g, accentColor.b, 0.75)
+                    font.pixelSize: root.dateFontSize
+                    font.family: root.effectiveFontFamily
+                    font.bold: root.dateBold
+                    color: Qt.rgba(
+                        root.accentColor.r,
+                        root.accentColor.g,
+                        root.accentColor.b,
+                        0.75
+                    )
                 }
             }
         }
 
-        // ---- LAYOUT DIVIDIDO ----
         Item {
             id: splitBlock
-            visible: splitActive
+            visible: root.splitActive
             anchors.fill: parent
 
             Text {
                 id: splitClockText
-                text: currentTimeText
-                font.pixelSize: clockFontSize
-                font.family: effectiveFontFamily
+                text: root.currentTimeText
+                font.pixelSize: root.clockFontSize
+                font.family: root.effectiveFontFamily
                 font.weight: Font.Medium
-                color: accentColor
+                color: root.accentColor
 
-                anchors.left: clockPosition === "left" ? parent.left : undefined
-                anchors.leftMargin: clockMarginH
-                anchors.right: clockPosition === "right" ? parent.right : undefined
-                anchors.rightMargin: clockMarginH
+                anchors.left: root.clockPosition === "left" ? parent.left : undefined
+                anchors.leftMargin: root.clockMarginH
+                anchors.right: root.clockPosition === "right" ? parent.right : undefined
+                anchors.rightMargin: root.clockMarginH
 
-                anchors.top: clockPositionV === "top" ? parent.top : undefined
-                anchors.topMargin: clockMarginV
-                anchors.verticalCenter: clockPositionV === "center" ? parent.verticalCenter : undefined
-                anchors.bottom: clockPositionV === "bottom" ? parent.bottom : undefined
-                anchors.bottomMargin: clockMarginV
+                anchors.top: root.clockPositionV === "top" ? parent.top : undefined
+                anchors.topMargin: root.clockMarginV
+                anchors.verticalCenter:
+                    root.clockPositionV === "center" ? parent.verticalCenter : undefined
+                anchors.bottom:
+                    root.clockPositionV === "bottom" ? parent.bottom : undefined
+                anchors.bottomMargin: root.clockMarginV
             }
 
-            // ✅ FECHA en layout dividido - También corregida
             Text {
-                text: currentDateText
-                font.pixelSize: dateFontSize
-                font.family: effectiveFontFamily
-                font.bold: dateBold
-                color: Qt.rgba(accentColor.r, accentColor.g, accentColor.b, 0.75)
+                text: root.currentDateText
+                font.pixelSize: root.dateFontSize
+                font.family: root.effectiveFontFamily
+                font.bold: root.dateBold
+                color: Qt.rgba(
+                    root.accentColor.r,
+                    root.accentColor.g,
+                    root.accentColor.b,
+                    0.75
+                )
 
-                anchors.right: clockPosition === "left" ? parent.right : undefined
-                anchors.rightMargin: clockMarginH
-                anchors.left: clockPosition === "right" ? parent.left : undefined
-                anchors.leftMargin: clockMarginH
-
+                anchors.right: root.clockPosition === "left" ? parent.right : undefined
+                anchors.rightMargin: root.clockMarginH
+                anchors.left: root.clockPosition === "right" ? parent.left : undefined
+                anchors.leftMargin: root.clockMarginH
                 anchors.verticalCenter: splitClockText.verticalCenter
             }
         }
 
         Item {
             id: unlockFollowBlock
-            visible: !unlockShouldCenter
-            width: 560
-            anchors.left: clockPosition === "left" ? parent.left : undefined
-            anchors.leftMargin: clockMarginH
-            anchors.horizontalCenter: clockPosition === "center" ? parent.horizontalCenter : undefined
-            anchors.right: clockPosition === "right" ? parent.right : undefined
-            anchors.rightMargin: clockMarginH
-            anchors.top: clockAtBottom ? parent.top : undefined
+            visible: !root.unlockShouldCenter
+            width: Math.min(560, root.width * 0.42)
+
+            anchors.left: root.clockPosition === "left" ? parent.left : undefined
+            anchors.leftMargin: root.clockMarginH
+            anchors.horizontalCenter:
+                root.clockPosition === "center" ? parent.horizontalCenter : undefined
+            anchors.right: root.clockPosition === "right" ? parent.right : undefined
+            anchors.rightMargin: root.clockMarginH
+
+            anchors.top: root.clockAtBottom ? parent.top : undefined
             anchors.topMargin: 40
-            anchors.bottom: clockAtBottom ? undefined : parent.bottom
+            anchors.bottom: root.clockAtBottom ? undefined : parent.bottom
             anchors.bottomMargin: 40
 
             Text {
-                text: unlockText
+                text: root.unlockText
                 font.pixelSize: 16
-                font.family: effectiveFontFamily
-                color: Qt.rgba(accentColor.r, accentColor.g, accentColor.b, 0.7)
+                font.family: root.effectiveFontFamily
+                color: Qt.rgba(
+                    root.accentColor.r,
+                    root.accentColor.g,
+                    root.accentColor.b,
+                    0.70
+                )
                 anchors.horizontalCenter: parent.horizontalCenter
             }
         }
 
         Text {
-            visible: unlockShouldCenter
-            text: unlockText
+            visible: root.unlockShouldCenter
+            text: root.unlockText
             font.pixelSize: 16
-            font.family: effectiveFontFamily
-            color: Qt.rgba(accentColor.r, accentColor.g, accentColor.b, 0.7)
+            font.family: root.effectiveFontFamily
+            color: Qt.rgba(
+                root.accentColor.r,
+                root.accentColor.g,
+                root.accentColor.b,
+                0.70
+            )
             anchors.horizontalCenter: parent.horizontalCenter
-            anchors.top: clockAtBottom ? parent.top : undefined
+            anchors.top: root.clockAtBottom ? parent.top : undefined
             anchors.topMargin: 40
-            anchors.bottom: clockAtBottom ? undefined : parent.bottom
+            anchors.bottom: root.clockAtBottom ? undefined : parent.bottom
             anchors.bottomMargin: 40
         }
     }
 
-    // ======================================================
-    // PANTALLA DE USUARIO / CONTRASEÑA
-    // ======================================================
+    // =====================================================
+    // Pantalla de usuario y contraseña
+    // =====================================================
     Item {
         id: loginScreen
         anchors.fill: parent
-        opacity: showLogin ? 1 : 0
+        opacity: root.showLogin ? 1 : 0
         visible: opacity > 0
-        Behavior on opacity { NumberAnimation { duration: 250 } }
+
+        Behavior on opacity {
+            NumberAnimation { duration: 250 }
+        }
 
         Item {
             id: loginPanel
-            width: 560
+            width: Math.min(560, root.width * 0.42)
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.top: parent.top
             anchors.bottom: parent.bottom
 
             Rectangle {
-                visible: loginPanelStyle === "gradient"
+                visible: root.loginPanelStyle === "gradient"
                 anchors.fill: parent
+
                 gradient: Gradient {
                     orientation: Gradient.Horizontal
                     GradientStop { position: 0.0; color: "#00000000" }
-                    GradientStop { position: 0.15; color: Qt.rgba(0, 0, 0, textBgOpacity) }
-                    GradientStop { position: 0.85; color: Qt.rgba(0, 0, 0, textBgOpacity) }
+                    GradientStop {
+                        position: 0.15
+                        color: Qt.rgba(0, 0, 0, root.textBgOpacity)
+                    }
+                    GradientStop {
+                        position: 0.85
+                        color: Qt.rgba(0, 0, 0, root.textBgOpacity)
+                    }
                     GradientStop { position: 1.0; color: "#00000000" }
                 }
             }
 
             Rectangle {
-                visible: loginPanelStyle === "glass"
+                visible: root.loginPanelStyle === "glass"
                 anchors.fill: parent
-                radius: panelRadius
-                color: Qt.rgba(0, 0, 0, panelTintOpacity + 0.12)
-                border.color: Qt.rgba(accentColor.r, accentColor.g, accentColor.b, 0.08)
+                radius: root.panelRadius
+                color: Qt.rgba(0, 0, 0, root.panelTintOpacity + 0.12)
+                border.color: Qt.rgba(
+                    root.accentColor.r,
+                    root.accentColor.g,
+                    root.accentColor.b,
+                    0.08
+                )
                 border.width: 1
             }
 
             Column {
                 anchors.top: parent.top
-                anchors.topMargin: 70
+                anchors.topMargin: Math.max(40, root.height * 0.065)
                 anchors.horizontalCenter: parent.horizontalCenter
                 spacing: 16
 
                 Rectangle {
-                    width: 96; height: 96
+                    width: 96
+                    height: 96
                     radius: width / 2
-                    color: Qt.rgba(accentColor.r, accentColor.g, accentColor.b, 0.15)
-                    border.color: Qt.rgba(accentColor.r, accentColor.g, accentColor.b, 0.3)
+                    color: Qt.rgba(
+                        root.accentColor.r,
+                        root.accentColor.g,
+                        root.accentColor.b,
+                        0.15
+                    )
+                    border.color: Qt.rgba(
+                        root.accentColor.r,
+                        root.accentColor.g,
+                        root.accentColor.b,
+                        0.30
+                    )
                     border.width: 2
                     anchors.horizontalCenter: parent.horizontalCenter
                     clip: true
 
                     Image {
                         anchors.fill: parent
-                        source: userListView.currentItem ? userListView.currentItem.userIcon : ""
+                        source: userListView.currentItem
+                            ? userListView.currentItem.userIcon
+                            : ""
                         fillMode: Image.PreserveAspectCrop
                     }
                 }
 
                 Text {
-                    text: userListView.currentItem
-                          ? (userListView.currentItem.userRealName.length > 0
-                             ? userListView.currentItem.userRealName
-                             : userListView.currentItem.userName)
-                          : ""
+                    text: {
+                        if (!userListView.currentItem)
+                            return ""
+                        return userListView.currentItem.userRealName.length > 0
+                            ? userListView.currentItem.userRealName
+                            : userListView.currentItem.userName
+                    }
                     anchors.horizontalCenter: parent.horizontalCenter
                     font.pixelSize: 22
-                    font.family: effectiveFontFamily
-                    color: accentColor
+                    font.family: root.effectiveFontFamily
+                    color: root.accentColor
                 }
             }
 
             Column {
                 anchors.bottom: parent.bottom
-                anchors.bottomMargin: 70
+                anchors.bottomMargin: Math.max(50, root.height * 0.065)
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: parent.width - 80
                 spacing: 14
@@ -551,22 +796,36 @@ Rectangle {
                         anchors.fill: parent
                         radius: 20
                         color: Qt.rgba(1, 1, 1, 0.06)
-                        border.color: Qt.rgba(accentColor.r, accentColor.g, accentColor.b, 0.3)
+                        border.color: Qt.rgba(
+                            root.accentColor.r,
+                            root.accentColor.g,
+                            root.accentColor.b,
+                            0.30
+                        )
                         border.width: 1
 
                         Row {
                             anchors.centerIn: parent
                             spacing: 8
+
                             Text {
-                                text: sessionListView.currentItem ? sessionListView.currentItem.sessionName : ""
+                                text: sessionListView.currentItem
+                                    ? sessionListView.currentItem.sessionName
+                                    : ""
                                 font.pixelSize: 14
-                                font.family: effectiveFontFamily
-                                color: accentColor
+                                font.family: root.effectiveFontFamily
+                                color: root.accentColor
                             }
+
                             Text {
                                 text: sessionSelector.expanded ? "▲" : "▼"
                                 font.pixelSize: 10
-                                color: Qt.rgba(accentColor.r, accentColor.g, accentColor.b, 0.7)
+                                color: Qt.rgba(
+                                    root.accentColor.r,
+                                    root.accentColor.g,
+                                    root.accentColor.b,
+                                    0.70
+                                )
                             }
                         }
 
@@ -585,7 +844,12 @@ Rectangle {
                         height: Math.min(sessionModel.count, 4) * 40
                         radius: 14
                         color: Qt.rgba(0.05, 0.02, 0.03, 0.95)
-                        border.color: Qt.rgba(accentColor.r, accentColor.g, accentColor.b, 0.3)
+                        border.color: Qt.rgba(
+                            root.accentColor.r,
+                            root.accentColor.g,
+                            root.accentColor.b,
+                            0.30
+                        )
                         border.width: 1
                         clip: true
                         z: 300
@@ -595,20 +859,26 @@ Rectangle {
                             anchors.margins: 4
                             model: sessionModel
                             clip: true
+
                             delegate: Rectangle {
-                                width: parent.width
+                                width: ListView.view.width
                                 height: 36
                                 radius: 10
                                 color: index === sessionListView.currentIndex
-                                       ? Qt.rgba(accentColor.r, accentColor.g, accentColor.b, 0.15)
-                                       : "transparent"
+                                    ? Qt.rgba(
+                                        root.accentColor.r,
+                                        root.accentColor.g,
+                                        root.accentColor.b,
+                                        0.15
+                                    )
+                                    : "transparent"
 
                                 Text {
                                     anchors.centerIn: parent
                                     text: name
                                     font.pixelSize: 13
-                                    font.family: effectiveFontFamily
-                                    color: accentColor
+                                    font.family: root.effectiveFontFamily
+                                    color: root.accentColor
                                 }
 
                                 MouseArea {
@@ -623,6 +893,17 @@ Rectangle {
                     }
                 }
 
+                Text {
+                    visible: root.loginErrorText.length > 0
+                    width: parent.width
+                    horizontalAlignment: Text.AlignHCenter
+                    wrapMode: Text.WordWrap
+                    text: root.loginErrorText
+                    font.pixelSize: 13
+                    font.family: root.effectiveFontFamily
+                    color: "#ff8a9d"
+                }
+
                 Row {
                     anchors.horizontalCenter: parent.horizontalCenter
                     spacing: 12
@@ -633,7 +914,12 @@ Rectangle {
                         height: 48
                         radius: 24
                         color: Qt.rgba(1, 1, 1, 0.08)
-                        border.color: Qt.rgba(accentColor.r, accentColor.g, accentColor.b, 0.4)
+                        border.color: Qt.rgba(
+                            root.accentColor.r,
+                            root.accentColor.g,
+                            root.accentColor.b,
+                            0.40
+                        )
                         border.width: 1
 
                         TextInput {
@@ -643,16 +929,26 @@ Rectangle {
                             anchors.rightMargin: 44
                             anchors.topMargin: 14
                             anchors.bottomMargin: 14
-                            echoMode: showPassword ? TextInput.Normal : TextInput.Password
-                            color: accentColor
+                            echoMode: root.showPassword
+                                ? TextInput.Normal
+                                : TextInput.Password
+                            color: root.accentColor
+                            selectionColor: Qt.rgba(
+                                root.accentColor.r,
+                                root.accentColor.g,
+                                root.accentColor.b,
+                                0.35
+                            )
+                            selectedTextColor: "#111111"
                             font.pixelSize: 16
-                            font.family: effectiveFontFamily
+                            font.family: root.effectiveFontFamily
                             clip: true
-                            Keys.onReturnPressed: doLogin()
-                            Keys.onEnterPressed: doLogin()
-                            Keys.onEscapePressed: {
+
+                            Keys.onReturnPressed: root.doLogin()
+                            Keys.onEnterPressed: root.doLogin()
+                            Keys.onEscapePressed: function(event) {
                                 text = ""
-                                showLogin = false
+                                root.showLogin = false
                                 root.forceActiveFocus()
                                 event.accepted = true
                             }
@@ -660,7 +956,8 @@ Rectangle {
 
                         Item {
                             id: eyeIcon
-                            width: 22; height: 22
+                            width: 22
+                            height: 22
                             anchors.right: parent.right
                             anchors.rightMargin: 12
                             anchors.verticalCenter: parent.verticalCenter
@@ -668,39 +965,59 @@ Rectangle {
                             Rectangle {
                                 id: eyeShape
                                 anchors.centerIn: parent
-                                width: 20; height: 12
+                                width: 20
+                                height: 12
                                 radius: 6
                                 color: "transparent"
-                                border.color: Qt.rgba(accentColor.r, accentColor.g, accentColor.b, 0.85)
+                                border.color: Qt.rgba(
+                                    root.accentColor.r,
+                                    root.accentColor.g,
+                                    root.accentColor.b,
+                                    0.85
+                                )
                                 border.width: 1.5
-                            }
-                            Rectangle {
-                                anchors.centerIn: eyeShape
-                                width: 5; height: 5
-                                radius: 2.5
-                                color: Qt.rgba(accentColor.r, accentColor.g, accentColor.b, 0.85)
                             }
 
                             Rectangle {
-                                visible: showPassword
+                                anchors.centerIn: eyeShape
+                                width: 5
+                                height: 5
+                                radius: 2.5
+                                color: Qt.rgba(
+                                    root.accentColor.r,
+                                    root.accentColor.g,
+                                    root.accentColor.b,
+                                    0.85
+                                )
+                            }
+
+                            Rectangle {
+                                visible: root.showPassword
                                 anchors.centerIn: parent
-                                width: 24; height: 1.6
+                                width: 24
+                                height: 1.6
                                 rotation: 45
-                                color: Qt.rgba(accentColor.r, accentColor.g, accentColor.b, 0.95)
+                                color: Qt.rgba(
+                                    root.accentColor.r,
+                                    root.accentColor.g,
+                                    root.accentColor.b,
+                                    0.95
+                                )
                             }
 
                             MouseArea {
                                 anchors.fill: parent
                                 anchors.margins: -8
-                                onClicked: showPassword = !showPassword
+                                onClicked: root.showPassword = !root.showPassword
                             }
                         }
                     }
 
                     Rectangle {
-                        width: 48; height: 48
+                        width: 48
+                        height: 48
                         radius: 24
-                        color: accentColor
+                        color: root.accentColor
 
                         Text {
                             anchors.centerIn: parent
@@ -708,9 +1025,10 @@ Rectangle {
                             font.pixelSize: 20
                             color: "#1a1a1a"
                         }
+
                         MouseArea {
                             anchors.fill: parent
-                            onClicked: doLogin()
+                            onClicked: root.doLogin()
                         }
                     }
                 }
@@ -718,9 +1036,9 @@ Rectangle {
         }
     }
 
-    // ======================================================
-    // BOTONES: suspender, reiniciar, apagar
-    // ======================================================
+    // =====================================================
+    // Acciones de energía
+    // =====================================================
     Row {
         anchors.top: parent.top
         anchors.right: parent.right
@@ -731,20 +1049,49 @@ Rectangle {
         Text {
             text: "⏾"
             font.pixelSize: 20
-            color: Qt.rgba(accentColor.r, accentColor.g, accentColor.b, 0.85)
-            MouseArea { anchors.fill: parent; onClicked: confirmDialog.show("suspend") }
+            color: Qt.rgba(
+                root.accentColor.r,
+                root.accentColor.g,
+                root.accentColor.b,
+                0.85
+            )
+            MouseArea {
+                anchors.fill: parent
+                anchors.margins: -8
+                onClicked: confirmDialog.show("suspend")
+            }
         }
+
         Text {
             text: "⟳"
             font.pixelSize: 20
-            color: Qt.rgba(accentColor.r, accentColor.g, accentColor.b, 0.85)
-            MouseArea { anchors.fill: parent; onClicked: confirmDialog.show("reboot") }
+            color: Qt.rgba(
+                root.accentColor.r,
+                root.accentColor.g,
+                root.accentColor.b,
+                0.85
+            )
+            MouseArea {
+                anchors.fill: parent
+                anchors.margins: -8
+                onClicked: confirmDialog.show("reboot")
+            }
         }
+
         Text {
             text: "⏻"
             font.pixelSize: 20
-            color: Qt.rgba(accentColor.r, accentColor.g, accentColor.b, 0.85)
-            MouseArea { anchors.fill: parent; onClicked: confirmDialog.show("shutdown") }
+            color: Qt.rgba(
+                root.accentColor.r,
+                root.accentColor.g,
+                root.accentColor.b,
+                0.85
+            )
+            MouseArea {
+                anchors.fill: parent
+                anchors.margins: -8
+                onClicked: confirmDialog.show("shutdown")
+            }
         }
     }
 
@@ -754,12 +1101,21 @@ Rectangle {
         visible: false
         z: 200
         property string action: ""
-        function show(a) { action = a; visible = true }
 
-        Rectangle { anchors.fill: parent; color: "#000000"; opacity: 0.6 }
+        function show(actionName) {
+            action = actionName
+            visible = true
+        }
 
         Rectangle {
-            width: 420; height: 180
+            anchors.fill: parent
+            color: "#000000"
+            opacity: 0.60
+        }
+
+        Rectangle {
+            width: Math.min(420, root.width - 40)
+            height: 180
             radius: 20
             anchors.centerIn: parent
             color: Qt.rgba(0.08, 0.03, 0.05, 0.95)
@@ -769,14 +1125,22 @@ Rectangle {
                 spacing: 30
 
                 Text {
-                    text: confirmDialog.action === "suspend"
-                          ? (language === "es" ? "¿Suspender el equipo?" : "Suspend the computer?")
-                          : confirmDialog.action === "reboot"
-                          ? (language === "es" ? "¿Reiniciar el equipo?" : "Restart the computer?")
-                          : (language === "es" ? "¿Apagar el equipo?" : "Shut down the computer?")
+                    text: {
+                        if (confirmDialog.action === "suspend")
+                            return root.language === "es"
+                                ? "¿Suspender el equipo?"
+                                : "Suspend the computer?"
+                        if (confirmDialog.action === "reboot")
+                            return root.language === "es"
+                                ? "¿Reiniciar el equipo?"
+                                : "Restart the computer?"
+                        return root.language === "es"
+                            ? "¿Apagar el equipo?"
+                            : "Shut down the computer?"
+                    }
                     color: "white"
                     font.pixelSize: 18
-                    font.family: effectiveFontFamily
+                    font.family: root.effectiveFontFamily
                     anchors.horizontalCenter: parent.horizontalCenter
                 }
 
@@ -785,18 +1149,25 @@ Rectangle {
                     spacing: 20
 
                     Rectangle {
-                        width: 130; height: 40
+                        width: 130
+                        height: 40
                         radius: 20
                         color: "transparent"
-                        border.color: Qt.rgba(accentColor.r, accentColor.g, accentColor.b, 0.4)
+                        border.color: Qt.rgba(
+                            root.accentColor.r,
+                            root.accentColor.g,
+                            root.accentColor.b,
+                            0.40
+                        )
                         border.width: 1
 
                         Text {
                             anchors.centerIn: parent
-                            text: language === "es" ? "Cancelar" : "Cancel"
-                            color: accentColor
-                            font.family: effectiveFontFamily
+                            text: root.language === "es" ? "Cancelar" : "Cancel"
+                            color: root.accentColor
+                            font.family: root.effectiveFontFamily
                         }
+
                         MouseArea {
                             anchors.fill: parent
                             onClicked: confirmDialog.visible = false
@@ -804,24 +1175,29 @@ Rectangle {
                     }
 
                     Rectangle {
-                        width: 130; height: 40
+                        width: 130
+                        height: 40
                         radius: 20
-                        color: accentColor
+                        color: root.accentColor
 
                         Text {
                             anchors.centerIn: parent
-                            text: language === "es" ? "Aceptar" : "OK"
+                            text: root.language === "es" ? "Aceptar" : "OK"
                             color: "#1a1a1a"
-                            font.family: effectiveFontFamily
+                            font.family: root.effectiveFontFamily
                             font.weight: Font.DemiBold
                         }
 
                         MouseArea {
                             anchors.fill: parent
                             onClicked: {
-                                if (confirmDialog.action === "suspend") sddm.suspend()
-                                else if (confirmDialog.action === "reboot") sddm.reboot()
-                                else sddm.powerOff()
+                                if (confirmDialog.action === "suspend")
+                                    sddm.suspend()
+                                else if (confirmDialog.action === "reboot")
+                                    sddm.reboot()
+                                else
+                                    sddm.powerOff()
+
                                 confirmDialog.visible = false
                             }
                         }
@@ -835,18 +1211,6 @@ Rectangle {
         interval: 1000
         running: true
         repeat: true
-        onTriggered: {
-            root.currentTimeText = use12Hour
-                        ? Qt.formatTime(new Date(), "h:mm AP")
-                        : Qt.formatTime(new Date(), "hh:mm")
-            var h = new Date().getHours()
-            if (use12Hour) { h = h % 12; if (h === 0) h = 12 }
-            var hs = h.toString()
-            root.currentHourText = hs.length < 2 ? "0" + hs : hs
-            var m = new Date().getMinutes()
-            var ms = m.toString()
-            root.currentMinuteText = ms.length < 2 ? "0" + ms : ms
-            root.currentAmPmText = new Date().getHours() < 12 ? "AM" : "PM"
-        }
+        onTriggered: root.now = new Date()
     }
 }
