@@ -9,7 +9,15 @@ Rectangle {
     color: "#000000"
     focus: true
 
-    Component.onCompleted: root.forceActiveFocus()
+    Component.onCompleted: {
+        root.forceActiveFocus()
+
+        // Espera a que SDDM termine de poblar sessionModel.
+        Qt.callLater(function() {
+            if (sessionListView.currentItem)
+                root.selectedSessionName = sessionListView.currentItem.sessionName
+        })
+    }
 
     // =====================================================
     // Helpers de configuración
@@ -156,6 +164,9 @@ Rectangle {
     property string loginErrorText: ""
     property bool showLogin: false
     property bool showPassword: false
+    property int selectedSessionIndex:
+        sessionModel.lastIndex >= 0 ? sessionModel.lastIndex : 0
+    property string selectedSessionName: ""
 
     FontLoader {
         id: customFontLoader
@@ -197,8 +208,8 @@ Rectangle {
         var userName = userListView.currentItem
             ? userListView.currentItem.userName
             : ""
-        var sessionIndex = sessionListView.currentIndex >= 0
-            ? sessionListView.currentIndex
+        var sessionIndex = root.selectedSessionIndex >= 0
+            ? root.selectedSessionIndex
             : 0
 
         if (userName.length === 0) {
@@ -209,6 +220,14 @@ Rectangle {
         }
 
         loginErrorText = ""
+        console.log(
+            "Intentando iniciar sesión:",
+            userName,
+            "sessionIndex:",
+            sessionIndex,
+            "sessionName:",
+            root.selectedSessionName
+        )
         sddm.login(userName, passwordInput.text, sessionIndex)
     }
 
@@ -220,6 +239,7 @@ Rectangle {
                 ? "Contraseña incorrecta o inicio de sesión fallido"
                 : "Incorrect password or login failed"
             passwordInput.text = ""
+            passwordShake.restart()
             passwordInput.forceActiveFocus()
         }
 
@@ -246,6 +266,8 @@ Rectangle {
         currentIndex: userModel.lastIndex >= 0 ? userModel.lastIndex : 0
 
         delegate: Item {
+            width: 1
+            height: 1
             property string userName: name
             property string userRealName: realName
             property string userIcon: icon
@@ -261,10 +283,21 @@ Rectangle {
         opacity: 0
         cacheBuffer: 100000
         model: sessionModel
-        currentIndex: sessionModel.lastIndex >= 0 ? sessionModel.lastIndex : 0
+        currentIndex: root.selectedSessionIndex
 
         delegate: Item {
+            width: 1
+            height: 1
             property string sessionName: name
+        }
+    }
+
+    Connections {
+        target: sessionListView
+
+        function onCurrentItemChanged() {
+            if (sessionListView.currentItem)
+                root.selectedSessionName = sessionListView.currentItem.sessionName
         }
     }
 
@@ -788,12 +821,17 @@ Rectangle {
                 Item {
                     id: sessionSelector
                     width: parent.width
-                    height: 40
+                    readonly property int dropdownHeight:
+                        Math.min(sessionModel.count, 4) * 40
+                    height: 40 + (expanded ? dropdownHeight + 8 : 0)
                     property bool expanded: false
+                    z: expanded ? 1000 : 0
 
                     Rectangle {
                         id: sessionBox
-                        anchors.fill: parent
+                        width: parent.width
+                        height: 40
+                        anchors.bottom: parent.bottom
                         radius: 20
                         color: Qt.rgba(1, 1, 1, 0.06)
                         border.color: Qt.rgba(
@@ -809,9 +847,11 @@ Rectangle {
                             spacing: 8
 
                             Text {
-                                text: sessionListView.currentItem
-                                    ? sessionListView.currentItem.sessionName
-                                    : ""
+                                text: root.selectedSessionName.length > 0
+                                    ? root.selectedSessionName
+                                    : (sessionListView.currentItem
+                                        ? sessionListView.currentItem.sessionName
+                                        : "")
                                 font.pixelSize: 14
                                 font.family: root.effectiveFontFamily
                                 color: root.accentColor
@@ -841,7 +881,7 @@ Rectangle {
                         width: parent.width
                         anchors.bottom: sessionBox.top
                         anchors.bottomMargin: 8
-                        height: Math.min(sessionModel.count, 4) * 40
+                        height: sessionSelector.dropdownHeight
                         radius: 14
                         color: Qt.rgba(0.05, 0.02, 0.03, 0.95)
                         border.color: Qt.rgba(
@@ -864,7 +904,7 @@ Rectangle {
                                 width: ListView.view.width
                                 height: 36
                                 radius: 10
-                                color: index === sessionListView.currentIndex
+                                color: index === root.selectedSessionIndex
                                     ? Qt.rgba(
                                         root.accentColor.r,
                                         root.accentColor.g,
@@ -884,8 +924,15 @@ Rectangle {
                                 MouseArea {
                                     anchors.fill: parent
                                     onClicked: {
-                                        sessionListView.currentIndex = index
+                                        root.selectedSessionIndex = index
+                                        root.selectedSessionName = name
+                                        console.log(
+                                            "Sesión seleccionada:",
+                                            index,
+                                            name
+                                        )
                                         sessionSelector.expanded = false
+                                        passwordInput.forceActiveFocus()
                                     }
                                 }
                             }
@@ -921,6 +968,75 @@ Rectangle {
                             0.40
                         )
                         border.width: 1
+
+                        // Se anima una transformación, no passwordBox.x.
+                        // Row controla la posición x de sus hijos y puede
+                        // sobrescribir una animación aplicada directamente a x.
+                        transform: Translate {
+                            id: passwordShakeOffset
+                            x: 0
+                        }
+
+                        SequentialAnimation {
+                            id: passwordShake
+                            alwaysRunToEnd: false
+
+                            PropertyAction {
+                                target: passwordShakeOffset
+                                property: "x"
+                                value: 0
+                            }
+
+                            NumberAnimation {
+                                target: passwordShakeOffset
+                                property: "x"
+                                to: -12
+                                duration: 55
+                                easing.type: Easing.OutQuad
+                            }
+                            NumberAnimation {
+                                target: passwordShakeOffset
+                                property: "x"
+                                to: 12
+                                duration: 70
+                                easing.type: Easing.InOutQuad
+                            }
+                            NumberAnimation {
+                                target: passwordShakeOffset
+                                property: "x"
+                                to: -9
+                                duration: 65
+                                easing.type: Easing.InOutQuad
+                            }
+                            NumberAnimation {
+                                target: passwordShakeOffset
+                                property: "x"
+                                to: 9
+                                duration: 60
+                                easing.type: Easing.InOutQuad
+                            }
+                            NumberAnimation {
+                                target: passwordShakeOffset
+                                property: "x"
+                                to: -5
+                                duration: 55
+                                easing.type: Easing.InOutQuad
+                            }
+                            NumberAnimation {
+                                target: passwordShakeOffset
+                                property: "x"
+                                to: 5
+                                duration: 50
+                                easing.type: Easing.InOutQuad
+                            }
+                            NumberAnimation {
+                                target: passwordShakeOffset
+                                property: "x"
+                                to: 0
+                                duration: 45
+                                easing.type: Easing.InQuad
+                            }
+                        }
 
                         TextInput {
                             id: passwordInput
