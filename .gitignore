@@ -1,3 +1,6 @@
 assets/videos/
+assets/gif/
+*.gif
 *.mp4
 *.bak
+*.md
