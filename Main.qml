@@ -767,7 +767,11 @@ Rectangle {
                 anchors.horizontalCenter: parent.horizontalCenter
                 spacing: 16
 
+                // Avatar circular. clip: true en QML solo recorta a un
+                // rectángulo (ignora radius), así que la imagen se dibuja
+                // dentro de un círculo con Canvas. No requiere módulos extra.
                 Rectangle {
+                    id: avatarFrame
                     width: 96
                     height: 96
                     radius: width / 2
@@ -785,14 +789,54 @@ Rectangle {
                     )
                     border.width: 2
                     anchors.horizontalCenter: parent.horizontalCenter
-                    clip: true
 
-                    Image {
+                    Canvas {
+                        id: avatarCanvas
                         anchors.fill: parent
-                        source: userListView.currentItem
-                            ? userListView.currentItem.userIcon
-                            : ""
-                        fillMode: Image.PreserveAspectCrop
+                        anchors.margins: 2
+
+                        onAvailableChanged: {
+                            if (available)
+                                requestPaint()
+                        }
+
+                        // Imagen invisible: solo sirve como fuente para dibujar en el Canvas.
+                        Image {
+                            id: avatarProbe
+                            width: 1
+                            height: 1
+                            opacity: 0
+                            source: userListView.currentItem
+                                ? userListView.currentItem.userIcon
+                                : ""
+                            onStatusChanged: {
+                                if (status === Image.Ready)
+                                    avatarCanvas.requestPaint()
+                            }
+                        }
+
+                        onPaint: {
+                            var ctx = getContext("2d")
+                            ctx.clearRect(0, 0, width, height)
+
+                            var iw = avatarProbe.implicitWidth
+                            var ih = avatarProbe.implicitHeight
+                            if (avatarProbe.status !== Image.Ready || iw <= 0 || ih <= 0)
+                                return
+
+                            // Recorte cuadrado centrado (equivale a PreserveAspectCrop).
+                            var side = Math.min(iw, ih)
+                            var sx = (iw - side) / 2
+                            var sy = (ih - side) / 2
+
+                            ctx.save()
+                            ctx.beginPath()
+                            ctx.arc(width / 2, height / 2, Math.min(width, height) / 2, 0, 2 * Math.PI)
+                            ctx.closePath()
+                            ctx.clip()
+                            ctx.drawImage(avatarProbe, sx, sy, side, side, 0, 0, width, height)
+                            ctx.restore()
+                        }
                     }
                 }
 
