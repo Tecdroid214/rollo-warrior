@@ -205,31 +205,10 @@ git push origin main
 
 # 📥 Instalación
 
-## ⚡ Instalación rápida
-
-No necesitas usar `chmod +x`.
-
-Ejecuta:
-
 ```bash
-curl -fsSL \
-  https://raw.githubusercontent.com/Tecdroid214/rollo-warrior/main/install-theme.sh \
-  -o /tmp/rollo-warrior-install.sh
-
-sudo bash /tmp/rollo-warrior-install.sh
+sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/Tecdroid214/rollo-warrior/main/install-theme.sh)"
 ```
 
-Al terminar puedes borrar el archivo temporal:
-
-```bash
-rm -f /tmp/rollo-warrior-install.sh
-```
-
-## 🚀 Instalación en una sola línea
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/Tecdroid214/rollo-warrior/main/install-theme.sh -o /tmp/rollo-warrior-install.sh && sudo bash /tmp/rollo-warrior-install.sh; rm -f /tmp/rollo-warrior-install.sh
-```
 
 > [!NOTE]
 > No se necesita permiso de ejecución porque el archivo se abre directamente mediante Bash.
