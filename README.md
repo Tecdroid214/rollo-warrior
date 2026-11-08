@@ -7,7 +7,9 @@
 ![SDDM](https://img.shields.io/badge/SDDM-Qt%206-1793D1?style=for-the-badge)
 ![CachyOS](https://img.shields.io/badge/CachyOS-Compatible-00AEEF?style=for-the-badge)
 ![Arch Linux](https://img.shields.io/badge/Arch%20Linux-Compatible-1793D1?style=for-the-badge&logo=archlinux)
+![Debian](https://img.shields.io/badge/Debian%2013-Compatible-A81D33?style=for-the-badge&logo=debian)
 ![QML](https://img.shields.io/badge/QML-Theme-41CD52?style=for-the-badge&logo=qt)
+![Versión](https://img.shields.io/badge/Versi%C3%B3n-0.5-c6f4eb?style=for-the-badge)
 ![Estado](https://img.shields.io/badge/Estado-En%20desarrollo-orange?style=for-the-badge)
 
 <br>
@@ -34,15 +36,27 @@ fondos animados, paneles personalizables, selector de sesión y una estética os
 
 **Rollo Warrior** es un tema personalizado para el gestor de inicio de sesión **SDDM**, desarrollado con **QML y Qt 6**.
 
-Su objetivo es ofrecer una pantalla de inicio moderna, visualmente atractiva y fácil de personalizar, conservando herramientas para probar, instalar, actualizar y restaurar el gestor de inicio del sistema.
+Su objetivo es ofrecer una pantalla de inicio moderna, visualmente atractiva y fácil de personalizar, conservando herramientas para probar, instalar, actualizar, diagnosticar y restaurar el gestor de inicio del sistema.
 
 El tema está pensado principalmente para:
 
 - 🟦 CachyOS.
-- 🏹 Arch Linux.
-- 📦 Distribuciones basadas en Arch.
+- 🏹 Arch Linux y distribuciones basadas en Arch.
+- 🌀 Debian 13 (Trixie).
 - 🖥️ SDDM con Qt 6.
 - 🎞️ Sistemas compatibles con Qt Multimedia.
+
+---
+
+# 🆕 Novedades de la versión 0.5
+
+- 🌀 **Compatibilidad con Debian 13.** El instalador detecta si el sistema usa `pacman` o `apt` e instala los paquetes correctos.
+- 📦 **Módulos QML de Debian.** Se instalan `qml6-module-*`, necesarios porque Debian reparte Qt 6 en paquetes separados.
+- 🔎 **Diagnóstico ampliado.** Comprueba paquetes, módulos QML, archivos del tema, configuración y gestor de inicio.
+- 🛡️ **Las actualizaciones ya no borran tus videos ni GIF.** Los archivos de `assets/videos/` y `assets/gif/` se conservan, igual que `theme.conf.user`.
+- 🔄 **El repositorio local se actualiza solo** con `git pull` en cada instalación o actualización.
+- ⚠️ **Aviso de conflictos.** Si otro archivo de `/etc/sddm.conf.d/` también define `Current=`, el instalador te lo indica.
+- ⌨️ **Menú interactivo con teclas.** Se navega con ↑ ↓ y ENTER, y se cancela con ESC sin errores.
 
 ---
 
@@ -90,13 +104,15 @@ El tema está pensado principalmente para:
 
 ## 🛠️ Instalador
 
+- Compatible con Arch/CachyOS (`pacman`) y Debian 13 (`apt`).
 - Instalación automática de dependencias.
+- Instalación automática de `gum` para la interfaz del instalador.
 - Validación de archivos principales.
-- Descarga automática desde GitHub.
-- Actualización del tema.
+- Descarga y actualización automática desde GitHub.
 - Instalación en la ruta correcta de SDDM.
 - Configuración automática del tema.
-- Activación opcional de SDDM.
+- Diagnóstico completo del sistema.
+- Activación o desactivación de SDDM.
 - Restauración opcional de LightDM.
 
 ---
@@ -205,47 +221,99 @@ git push origin main
 
 # 📥 Instalación
 
+El mismo comando funciona en **Arch/CachyOS** y en **Debian 13**:
+
 ```bash
 sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/Tecdroid214/rollo-warrior/main/install-theme.sh)"
 ```
-
 
 > [!NOTE]
 > No se necesita permiso de ejecución porque el archivo se abre directamente mediante Bash.
 >
 > Sí se necesita `sudo`, ya que el instalador escribe en `/usr/share`, `/etc` y administra servicios del sistema.
+>
+> No uses `curl ... | sudo bash`: el menú necesita el teclado y una tubería se lo quitaría.
+
+## 📋 Requisitos previos
+
+| Sistema | Gestor | Antes de instalar |
+|---------|--------|-------------------|
+| Arch / CachyOS | `pacman` | Nada adicional. |
+| Debian 13 | `apt` | Necesitas `curl` y `sudo`. |
+
+En Debian, si no los tienes:
+
+```bash
+su -
+apt install -y curl sudo
+usermod -aG sudo tu_usuario
+```
+
+Cierra sesión y vuelve a entrar para que el grupo `sudo` se aplique.
+
+## 📦 Dependencias que instala el instalador
+
+El instalador las instala automáticamente al elegir **Instalar o reparar tema**.
+
+| Función | Arch / CachyOS | Debian 13 |
+|---------|----------------|-----------|
+| Herramientas | `git`, `rsync`, `gum` | `git`, `rsync`, `gum` |
+| Gestor de inicio | `sddm` | `sddm` |
+| QtQuick y QML | `qt6-declarative` | `qml6-module-qtquick`, `qml6-module-qtquick-window`, `qml6-module-qtqml-workerscript` |
+| Video | `qt6-multimedia-ffmpeg` | `qml6-module-qtmultimedia` |
+| Imágenes SVG | `qt6-svg` | — |
+
+> [!NOTE]
+> Debian 13 ya incluye SDDM con Qt 6 y el ejecutable `sddm-greeter-qt6`.
+>
+> La compatibilidad con Debian está en pruebas. Si algún paquete falla, abre un Issue con el mensaje de error.
 
 ---
 
 # 📋 Menú del instalador
 
-Al ejecutar el instalador aparecerán estas opciones:
+Al ejecutar el instalador aparece un menú interactivo. Se navega con **↑ ↓**, se selecciona con **ENTER** y se sale con **ESC**:
 
 ```text
-=== Instalador de Rollo Warrior SDDM Theme ===
+Selecciona una opción:
 
-1) Instalar o reparar dependencias, tema y configuración
-2) Actualizar desde GitHub y volver a copiar el tema
-3) Mostrar comandos de prueba
-4) Activar SDDM para el próximo arranque
-5) Restaurar LightDM para el próximo arranque
-6) Salir
+❯ 🎨 Instalar o reparar tema
+  🔄 Actualizar desde GitHub
+  🧪 Probar y mostrar comandos
+  ⚙ Gestionar SDDM
+  ↩ Restaurar LightDM
+  🚪 Salir
 ```
 
-Para realizar la primera instalación selecciona:
+| Opción | Qué hace |
+|--------|----------|
+| 🎨 **Instalar o reparar tema** | Instala dependencias, descarga el repositorio, valida y copia el tema, y crea la configuración. |
+| 🔄 **Actualizar desde GitHub** | Descarga los cambios, valida de nuevo y vuelve a copiar el tema. |
+| 🧪 **Probar y mostrar comandos** | Abre el submenú de pruebas y diagnóstico. |
+| ⚙ **Gestionar SDDM** | Activa SDDM, o si ya está activo, permite repararlo o desactivarlo. |
+| ↩ **Restaurar LightDM** | Devuelve LightDM como gestor de inicio (debe estar instalado). |
+| 🚪 **Salir** | Cierra el instalador. |
 
-```text
-1
-```
+Para la primera instalación selecciona **🎨 Instalar o reparar tema**.
 
 El instalador:
 
-1. Instalará las dependencias.
-2. Descargará el repositorio si no existe.
+1. Instalará las dependencias de tu distribución.
+2. Descargará el repositorio en `~/rollo-warrior`, o lo actualizará si ya existe.
 3. Validará los archivos del tema.
-4. Copiará Rollo Warrior a SDDM.
-5. Creará la configuración correspondiente.
-6. Mantendrá tu gestor de inicio actual hasta que decidas activar SDDM.
+4. Copiará Rollo Warrior a `/usr/share/sddm/themes/rollo-warrior`.
+5. Creará `/etc/sddm.conf.d/10-rollo-warrior.conf`.
+6. Mantendrá tu gestor de inicio actual hasta que decidas cambiarlo.
+
+## 🧪 Submenú de pruebas
+
+| Opción | Qué hace |
+|--------|----------|
+| 🔎 **Diagnóstico completo** | Comprueba paquetes, módulos QML, archivos del tema, configuración y gestor de inicio. |
+| 🧪 **Ejecutar prueba local del tema** | Abre el greeter en modo de prueba. |
+| 🔍 **Comprobar Qt 6** | Verifica que `metadata.desktop` indique `QtVersion=6`. |
+| 🎬 **Comprobar configuración de video** | Muestra `BackgroundType`, `EnableVideo` y `BackgroundVideo`. |
+| 📁 **Ver archivos de video** | Lista los videos instalados en el tema. |
 
 ---
 
@@ -268,6 +336,8 @@ Ejecuta el instalador:
 ```bash
 sudo bash install-theme.sh
 ```
+
+Si ejecutas el instalador desde la carpeta del repositorio, usará esos archivos en lugar de descargar otra copia.
 
 ## Dirección del repositorio
 
@@ -308,6 +378,8 @@ Durante la prueba puedes revisar:
 
 # ✅ Activar SDDM
 
+En **Debian 13** SDDM suele venir activado por defecto, así que normalmente no necesitas este paso.
+
 Cuando la prueba funcione correctamente:
 
 ```bash
@@ -318,10 +390,10 @@ sudo bash install-theme.sh
 Selecciona:
 
 ```text
-4
+⚙ Gestionar SDDM
 ```
 
-El instalador solicitará confirmación antes de cambiar el gestor de inicio.
+Si SDDM no es el gestor actual, el instalador solicitará confirmación antes de cambiarlo. Si ya está activo, mostrará las opciones de reparar o desactivar.
 
 Después reinicia:
 
@@ -343,7 +415,7 @@ sudo bash install-theme.sh
 Selecciona:
 
 ```text
-2
+🔄 Actualizar desde GitHub
 ```
 
 La opción de actualización:
@@ -351,7 +423,8 @@ La opción de actualización:
 - Descarga los cambios desde GitHub.
 - Valida nuevamente el tema.
 - Copia los archivos actualizados.
-- Conserva la configuración de SDDM.
+- Vuelve a escribir la configuración de SDDM.
+- **Conserva** los videos en `assets/videos/`, los GIF en `assets/gif/` y el archivo `theme.conf.user`.
 
 También puedes descargar los cambios manualmente:
 
@@ -359,6 +432,11 @@ También puedes descargar los cambios manualmente:
 cd ~/rollo-warrior
 git pull --ff-only origin main
 ```
+
+> [!WARNING]
+> La actualización reemplaza `theme.conf` por el del repositorio.
+>
+> Si quieres conservar ajustes propios, guárdalos en `theme.conf.user` dentro de la carpeta del tema. SDDM lo lee después de `theme.conf` y el instalador no lo borra.
 
 ---
 
@@ -386,7 +464,7 @@ sudo bash install-theme.sh
 Selecciona:
 
 ```text
-1
+🎨 Instalar o reparar tema
 ```
 
 ---
@@ -569,7 +647,7 @@ BackgroundVideo=assets/videos/video_1.mp4
 Configura también los respaldos:
 
 ```ini
-BackgroundVideoFallbackGif=assets/gif/Galactic Void Astronaut.gif
+BackgroundVideoFallbackGif=assets/gif/error_imagen.gif
 BackgroundImage=assets/images/image_3.jpg
 ```
 
@@ -585,6 +663,20 @@ Para desactivar temporalmente el video:
 BackgroundType=video
 EnableVideo=false
 ```
+
+> [!IMPORTANT]
+> Los videos (`*.mp4`) y los GIF (`*.gif`) **no se incluyen en el repositorio** de GitHub.
+>
+> Para usar un video, cópialo manualmente a la carpeta del tema:
+>
+> ```bash
+> sudo cp mi-video.mp4 /usr/share/sddm/themes/rollo-warrior/assets/videos/
+> ```
+>
+> Las actualizaciones no lo borrarán.
+
+> [!TIP]
+> En Debian, si el video no se reproduce, empieza con `EnableVideo=false` para comprobar que el resto del tema carga bien. Después activa el video y revisa el registro con `journalctl -u sddm -b`.
 
 ---
 
@@ -690,13 +782,26 @@ rollo-warrior/
 | `VideoBackground.qml` | Fondo y reproducción de video |
 | `metadata.desktop` | Información para SDDM |
 | `theme.conf` | Configuración visual |
-| `install-theme.sh` | Instalación y actualización |
+| `install-theme.sh` | Instalación, actualización y diagnóstico |
 | `assets/` | Recursos utilizados por el tema |
 | `docs/` | Capturas y demostraciones del README |
 
 ---
 
 # 🛠️ Solución de problemas
+
+## Ejecutar el diagnóstico
+
+La forma más rápida de ver qué falta:
+
+```bash
+cd ~/rollo-warrior
+sudo bash install-theme.sh
+```
+
+Selecciona **🧪 Probar y mostrar comandos → 🔎 Diagnóstico completo**. Cada componente aparece marcado con ✓ o ✗.
+
+---
 
 ## El video no aparece
 
@@ -742,6 +847,49 @@ DisplayServer=x11
 Current=rollo-warrior
 ```
 
+La línea `DisplayServer=x11` solo se escribe si Xorg está instalado.
+
+Si otro archivo también define `Current=`, puede pisar el tema. Búscalo con:
+
+```bash
+grep -rn "^Current=" /etc/sddm.conf /etc/sddm.conf.d/
+```
+
+---
+
+## Error "module is not installed"
+
+Si el login muestra un error rojo parecido a:
+
+```text
+module "QtQuick.Window" is not installed
+```
+
+faltan módulos de Qt 6. Ejecuta de nuevo **🎨 Instalar o reparar tema**, o instálalos a mano.
+
+En Debian:
+
+```bash
+sudo apt install qml6-module-qtquick qml6-module-qtquick-window \
+  qml6-module-qtqml-workerscript qml6-module-qtmultimedia
+```
+
+En Arch/CachyOS:
+
+```bash
+sudo pacman -S qt6-declarative qt6-multimedia-ffmpeg
+```
+
+---
+
+## Ver el registro de SDDM
+
+Si el tema funciona en `--test-mode` pero falla al reiniciar:
+
+```bash
+journalctl -u sddm -b --no-pager | tail -60
+```
+
 ---
 
 ## Comprobar el gestor de inicio
@@ -759,6 +907,19 @@ systemctl status sddm.service
 
 ---
 
+## `git pull` falla por cambios locales
+
+Si editaste `theme.conf` dentro de `~/rollo-warrior` y la actualización no puede continuar:
+
+```bash
+cd ~/rollo-warrior
+git stash
+git pull --ff-only origin main
+git stash pop
+```
+
+---
+
 ## Restaurar LightDM
 
 Ejecuta:
@@ -771,7 +932,7 @@ sudo bash install-theme.sh
 Selecciona:
 
 ```text
-5
+↩ Restaurar LightDM
 ```
 
 > [!WARNING]
@@ -822,12 +983,14 @@ Ctrl + Alt + F3
 - [x] Animación de contraseña incorrecta.
 - [x] Instalador automático.
 - [x] Actualización desde GitHub.
+- [x] Instalador compatible con Arch/CachyOS y Debian 13.
+- [x] Diagnóstico completo desde el instalador.
 - [ ] Más estilos visuales.
 - [ ] Más opciones de paneles.
 - [ ] Mejor soporte para diferentes resoluciones.
 - [ ] Configuración simplificada.
 - [ ] Mejoras para imágenes de perfil.
-- [ ] Compatibilidad con más distribuciones.
+- [ ] Compatibilidad con más distribuciones (Fedora, openSUSE, Ubuntu).
 
 ---
 
@@ -840,7 +1003,7 @@ Puedes utilizar la sección **Issues** para informar:
 - 🐛 Errores.
 - 🎞️ Problemas con videos.
 - 🖥️ Problemas con sesiones.
-- 📦 Fallos de instalación.
+- 📦 Fallos de instalación en Arch o Debian.
 - 🎨 Sugerencias visuales.
 - ✨ Solicitudes de funciones.
 
